@@ -13,15 +13,19 @@ Library           RPA.Tables
 Library           RPA.Desktop
 Library           RPA.Archive
 Library           RPA.Robocorp.Vault
+Library           RPA.Dialogs
+Library           Collections
 
 *** Variables ***
 ${ORDERING_URL}    https://robotsparebinindustries.com/
 ${ORDERFILE}      orders.csv
 ${RETRIES}        4 times
+${EVILFILE}       evil-robot.png
 
 *** Tasks ***
 Order robots from RobotSpareBin Industries Inc
     Open the robot order website
+    ${evil_head}    Ask for evil heads
     ${orders}=    Get orders
     FOR    ${row}    IN    @{orders}
         Close the annoying modal
@@ -31,6 +35,9 @@ Order robots from RobotSpareBin Industries Inc
         ${pdf}=    Store the receipt as a PDF file    ${row}[Order number]
         ${screenshot}=    Take a screenshot of the robot    ${row}[Order number]
         Embed the robot screenshot to the receipt PDF file    ${screenshot}    ${pdf}
+        IF    ${row}[Head] == ${evil_head}
+            Add evilness warning to PDF    ${pdf}
+        END
         Go to order another robot
     END
     Create a ZIP file of the receipts
@@ -63,7 +70,7 @@ Close the annoying modal
 Fill the form
     [Arguments]    ${order}
     Select From List By Value    id:head    ${order}[Head]
-    Select Radio Button    body    5    #id:id-body-${order}[Body]
+    Select Radio Button    body    ${order}[Body]
     Input Text    //input[@placeholder="Enter the part number for the legs"]    ${order}[Legs]
     Input Text    id:address    ${order}[Address]
 
@@ -92,8 +99,26 @@ Embed the robot screenshot to the receipt PDF file
     @{images}    Create List    ${image}
     Add Files To Pdf    ${images}    ${pdf}    append=True
 
+Add evilness warning to PDF
+    [Arguments]    ${pdf}
+    @{images}    Create List    ${EVILFILE}
+    Add Files To Pdf    ${images}    ${pdf}    append=True
+
 Go to order another robot
     Click Button    order-another
 
 Create a ZIP file of the receipts
     Archive Folder With Zip    ${OUTPUT_DIR}    ${OUTPUT_DIR}${/}orders.zip    include=receipt-*.pdf
+
+Ask for evil heads
+    Add heading    Is there an evil robot head?
+    Add icon    Warning
+    Add text input    evilhead    placeholder=Evil robot head number
+    Add submit buttons    buttons=No,Yes    default=Yes
+    ${result}=    Run dialog
+    IF    "${result.submit}" == "No"
+        ${evilhead}    Set Variable    ${EMPTY}
+    ELSE
+        ${evilhead}    Set Variable    ${result.evilhead}
+    END
+    [Return]    ${evilhead}
